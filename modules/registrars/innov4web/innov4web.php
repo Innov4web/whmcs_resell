@@ -135,6 +135,8 @@ function innov4web_TransferDomain($params)
         'password' => $params['APIKey'],
         'domain' => $params['sld'] . '.' . $params['tld'],
         'eppcode' => $params['eppcode'],
+        'nameserver1' => $params['ns1'],
+        'nameserver2' => $params['ns2'],
         'method' => 'POST',
     );
 
