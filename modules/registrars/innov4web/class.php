@@ -52,23 +52,35 @@ class ApiClient
         $ch = curl_init();
         if ($action == 'renew' OR $action == 'register'){
             $years = $data['years'];
-            curl_setopt($ch, CURLOPT_URL, self::API_URL . 'domains/'.$domain.'/'.$action.'/'.$years);
+            $baseUrl = self::API_URL . 'domains/'.$domain.'/'.$action.'/'.$years;
         }else{
-            curl_setopt($ch, CURLOPT_URL, self::API_URL . 'domains/'.$domain.'/'.$action);
+            $baseUrl = self::API_URL . 'domains/'.$domain.'/'.$action;
         }
 
+        unset($data['domain']);
+        unset($data['method']);
 
         curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/json', 'Authorization: Bearer ' . $token, 'Accept: application/json'));
+        if($method == 'GET'){
+            curl_setopt($ch, CURLOPT_URL, $baseUrl);
+        }
         if($method == 'PUT'){
+            curl_setopt($ch, CURLOPT_URL, $baseUrl);
             curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PUT");
             curl_setopt($ch, CURLOPT_HTTPHEADER, array('Authorization: Bearer ' . $token , 'Content-Type: application/x-www-form-urlencoded', 'Accept: application/json'));
             curl_setopt($ch, CURLOPT_POST, 1);
             curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data));
         }
         if($method == 'POST'){
+            curl_setopt($ch, CURLOPT_URL, $baseUrl);
             curl_setopt($ch, CURLOPT_HTTPHEADER, array('Authorization: Bearer ' . $token , 'Accept: application/json'));
             curl_setopt($ch, CURLOPT_POST, 1);
             curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data));
+        }
+        if($method == 'DELETE'){
+            curl_setopt($ch, CURLOPT_URL, $baseUrl . '?' . http_build_query($data));
+            curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "DELETE");
+            curl_setopt($ch, CURLOPT_HTTPHEADER, array('Authorization: Bearer ' . $token, 'Accept: application/json'));
         }
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
         curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);

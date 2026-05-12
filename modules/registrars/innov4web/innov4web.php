@@ -331,6 +331,124 @@ function innov4web_Sync($params)
     }
 }
 
+function innov4web_GetDNSSEC($params)
+{
+    $data = array(
+        'username' => $params['APIUsername'],
+        'password' => $params['APIKey'],
+        'domain' => $params['sld'] . '.' . $params['tld'],
+        'method' => 'GET',
+    );
+
+    try {
+        $api = new ApiClient();
+        $api->call('dnssec', $data);
+
+        $status = $api->getFromResponse('status');
+
+        if ($status == 200) {
+            $respData = $api->getFromResponse('data');
+            $records = array();
+
+            foreach ($respData['dnssec'] as $record) {
+                $records[] = array(
+                    'keytag'     => $record['keytag'],
+                    'algorithm'  => $record['algorithm'],
+                    'digesttype' => $record['digesttype'],
+                    'digest'     => $record['digest'],
+                );
+            }
+
+            return array('records' => $records);
+        } else {
+            return array('error' => $api->getFromResponse('message'));
+        }
+
+    } catch (\Exception $e) {
+        return array('error' => $e->getMessage());
+    }
+}
+
+
+function innov4web_SaveDNSSEC($params)
+{
+    $domain = $params['sld'] . '.' . $params['tld'];
+    $newRecords = $params['dnssec'];
+
+    try {
+        $api = new ApiClient();
+
+        // Get current records
+        $api->call('dnssec', array(
+            'username' => $params['APIUsername'],
+            'password' => $params['APIKey'],
+            'domain'   => $domain,
+            'method'   => 'GET',
+        ));
+
+        $status = $api->getFromResponse('status');
+        $currentRecords = array();
+
+        if ($status == 200) {
+            $respData = $api->getFromResponse('data');
+            $currentRecords = $respData['dnssec'] ?? array();
+        }
+
+        // Build lookup keys for comparison
+        $recordKey = function($r) {
+            return $r['keytag'] . '|' . $r['algorithm'] . '|' . $r['digesttype'] . '|' . $r['digest'];
+        };
+
+        $currentKeys = array();
+        foreach ($currentRecords as $r) {
+            $currentKeys[$recordKey($r)] = $r;
+        }
+
+        $newKeys = array();
+        foreach ($newRecords as $r) {
+            $newKeys[$recordKey($r)] = $r;
+        }
+
+        // Delete records no longer present
+        foreach ($currentKeys as $key => $record) {
+            if (!isset($newKeys[$key])) {
+                $api->call('dnssec', array(
+                    'username'   => $params['APIUsername'],
+                    'password'   => $params['APIKey'],
+                    'domain'     => $domain,
+                    'method'     => 'DELETE',
+                    'keytag'     => $record['keytag'],
+                    'algorithm'  => $record['algorithm'],
+                    'digesttype' => $record['digesttype'],
+                    'digest'     => $record['digest'],
+                ));
+            }
+        }
+
+        // Add new records
+        foreach ($newKeys as $key => $record) {
+            if (!isset($currentKeys[$key])) {
+                $api->call('dnssec', array(
+                    'username'   => $params['APIUsername'],
+                    'password'   => $params['APIKey'],
+                    'domain'     => $domain,
+                    'method'     => 'POST',
+                    'keytag'     => $record['keytag'],
+                    'algorithm'  => $record['algorithm'],
+                    'digesttype' => $record['digesttype'],
+                    'digest'     => $record['digest'],
+                ));
+            }
+        }
+
+        return array('success' => true);
+
+    } catch (\Exception $e) {
+        return array('error' => $e->getMessage());
+    }
+}
+
+
 function innov4web_TransferSync($params)
 {
 
