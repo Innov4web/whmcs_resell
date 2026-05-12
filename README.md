@@ -26,29 +26,31 @@ O módulo liga-se à API em `https://api.innov4web.pt/v1/`. Não é necessário 
 | Obter código EPP | `innov4web_GetEPPCode` |
 | Sincronização de estado | `innov4web_Sync` |
 | Sincronização de transferência | `innov4web_TransferSync` |
-| Obter registos DNSSEC | `innov4web_GetDNSSEC` |
-| Guardar registos DNSSEC | `innov4web_SaveDNSSEC` |
+| Gestão DNSSEC (botão custom) | `innov4web_dnssecds` |
 
 ## DNSSEC
 
-O módulo suporta gestão completa de DNSSEC diretamente pelo painel do WHMCS do cliente.
+A gestão de DNSSEC é feita através de um **Client Area Custom Button** (`Manage DNSSEC`) que abre uma página dedicada com template próprio (`dnssecds.tpl`).
 
-Quando o utilizador guarda alterações DNSSEC, o módulo:
-1. Obtém os registos atualmente ativos via `GET /api/domains/{domain}/dnssec`
-2. Compara com a lista enviada pelo WHMCS
-3. Remove os registos que deixaram de existir (`DELETE`)
-4. Adiciona os registos novos (`POST`)
+O cliente pode, a partir dessa página:
+- **Ver** os registos DS ativos no domínio
+- **Adicionar** um novo registo DS (Key Tag, Algorithm, Digest Type, Digest)
+- **Editar** um registo existente (remove o antigo e adiciona o novo)
+- **Remover** um registo DS
+
+Cada operação chama a API Innov4web (`POST /v1/domains/{domain}/dnssec` ou `DELETE`) que por sua vez comunica com o WHMCS da Innov4web via hook EPP.
 
 Cada registo DS é identificado pelos campos: `keytag`, `algorithm`, `digesttype` e `digest`.
 
-> **Nota:** O suporte a DNSSEC depende do registrar configurado no WHMCS do lado da Innov4web. Se o módulo de registrar upstream não suportar DNSSEC, as operações devolverão erro.
+> **Nota:** O suporte a DNSSEC requer que o domínio esteja registado através do módulo `cozaeppv2` no WHMCS da Innov4web, com acesso EPP à DNS.PT.
 
 ## Estrutura de ficheiros
 
 ```
 modules/registrars/innov4web/
-├── innov4web.php   # Funções do módulo WHMCS
-└── class.php       # Cliente HTTP para a API Innov4web
+├── innov4web.php    # Funções do módulo WHMCS
+├── class.php        # Cliente HTTP para a API Innov4web
+└── dnssecds.tpl     # Template da página de gestão DNSSEC
 ```
 
 ## Autenticação
