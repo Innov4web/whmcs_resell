@@ -26,9 +26,6 @@ No painel do cliente aparece um botão **Manage DNSSEC** em cada domínio. A par
 - Editar um registo existente
 - Remover um registo
 
-As alterações são enviadas para a API Innov4web, que as aplica diretamente na DNS.PT via EPP.
-
-> O DNSSEC só funciona para domínios geridos pelo módulo `cozaeppv2` no WHMCS da Innov4web.
 
 ## Ficheiros
 
