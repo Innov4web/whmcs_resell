@@ -331,121 +331,94 @@ function innov4web_Sync($params)
     }
 }
 
-function innov4web_GetDNSSEC($params)
+function innov4web_ClientAreaCustomButtonArray()
 {
-    $data = array(
-        'username' => $params['APIUsername'],
-        'password' => $params['APIKey'],
-        'domain' => $params['sld'] . '.' . $params['tld'],
-        'method' => 'GET',
-    );
-
-    try {
-        $api = new ApiClient();
-        $api->call('dnssec', $data);
-
-        $status = $api->getFromResponse('status');
-
-        if ($status == 200) {
-            $respData = $api->getFromResponse('data');
-            $records = array();
-
-            foreach ($respData['dnssec'] as $record) {
-                $records[] = array(
-                    'keytag'     => $record['keytag'],
-                    'algorithm'  => $record['algorithm'],
-                    'digesttype' => $record['digesttype'],
-                    'digest'     => $record['digest'],
-                );
-            }
-
-            return array('records' => $records);
-        } else {
-            return array('error' => $api->getFromResponse('message'));
-        }
-
-    } catch (\Exception $e) {
-        return array('error' => $e->getMessage());
-    }
+    return [
+        'Manage DNSSEC' => 'dnssecds',
+    ];
 }
 
-
-function innov4web_SaveDNSSEC($params)
+function innov4web_dnssecds($params)
 {
-    $domain = $params['sld'] . '.' . $params['tld'];
-    $newRecords = $params['dnssec'];
+    $domain   = $params['sld'] . '.' . $params['tld'];
+    $domainid = $params['domainid'];
+    $command  = isset($_REQUEST['command']) ? $_REQUEST['command'] : '';
+    $error    = null;
+    $success  = null;
 
-    try {
-        $api = new ApiClient();
+    $api = new ApiClient();
 
-        // Get current records
-        $api->call('dnssec', array(
-            'username' => $params['APIUsername'],
-            'password' => $params['APIKey'],
-            'domain'   => $domain,
-            'method'   => 'GET',
-        ));
+    // Process add or remove command
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($command, ['secDNSadd', 'secDNSrem'])) {
+        $keyTag     = isset($_POST['keyTag'])     ? trim($_POST['keyTag'])     : '';
+        $alg        = isset($_POST['alg'])         ? trim($_POST['alg'])         : '';
+        $digestType = isset($_POST['digestType']) ? trim($_POST['digestType']) : '';
+        $digest     = isset($_POST['digest'])     ? trim($_POST['digest'])     : '';
 
-        $status = $api->getFromResponse('status');
-        $currentRecords = array();
+        $method = ($command === 'secDNSadd') ? 'POST' : 'DELETE';
 
-        if ($status == 200) {
-            $respData = $api->getFromResponse('data');
-            $currentRecords = $respData['dnssec'] ?? array();
+        try {
+            $api->call('dnssec', [
+                'username'   => $params['APIUsername'],
+                'password'   => $params['APIKey'],
+                'domain'     => $domain,
+                'method'     => $method,
+                'keytag'     => $keyTag,
+                'algorithm'  => $alg,
+                'digesttype' => $digestType,
+                'digest'     => $digest,
+            ]);
+            $success = ($command === 'secDNSadd') ? 'DS record added successfully.' : 'DS record removed successfully.';
+        } catch (\Exception $e) {
+            $error = $e->getMessage();
         }
-
-        // Build lookup keys for comparison
-        $recordKey = function($r) {
-            return $r['keytag'] . '|' . $r['algorithm'] . '|' . $r['digesttype'] . '|' . $r['digest'];
-        };
-
-        $currentKeys = array();
-        foreach ($currentRecords as $r) {
-            $currentKeys[$recordKey($r)] = $r;
-        }
-
-        $newKeys = array();
-        foreach ($newRecords as $r) {
-            $newKeys[$recordKey($r)] = $r;
-        }
-
-        // Delete records no longer present
-        foreach ($currentKeys as $key => $record) {
-            if (!isset($newKeys[$key])) {
-                $api->call('dnssec', array(
-                    'username'   => $params['APIUsername'],
-                    'password'   => $params['APIKey'],
-                    'domain'     => $domain,
-                    'method'     => 'DELETE',
-                    'keytag'     => $record['keytag'],
-                    'algorithm'  => $record['algorithm'],
-                    'digesttype' => $record['digesttype'],
-                    'digest'     => $record['digest'],
-                ));
-            }
-        }
-
-        // Add new records
-        foreach ($newKeys as $key => $record) {
-            if (!isset($currentKeys[$key])) {
-                $api->call('dnssec', array(
-                    'username'   => $params['APIUsername'],
-                    'password'   => $params['APIKey'],
-                    'domain'     => $domain,
-                    'method'     => 'POST',
-                    'keytag'     => $record['keytag'],
-                    'algorithm'  => $record['algorithm'],
-                    'digesttype' => $record['digesttype'],
-                    'digest'     => $record['digest'],
-                ));
-            }
-        }
-
-        return array('success' => true);
-
-    } catch (\Exception $e) {
-        return array('error' => $e->getMessage());
     }
+
+    // Fetch current records
+    $DSRecords     = "You don't have any DS records";
+    $DSRecordslist = [];
+
+    if (!$error) {
+        try {
+            $api->call('dnssec', [
+                'username' => $params['APIUsername'],
+                'password' => $params['APIKey'],
+                'domain'   => $domain,
+                'method'   => 'GET',
+            ]);
+
+            $status  = $api->getFromResponse('status');
+            $data    = $api->getFromResponse('data');
+            $records = isset($data['dnssec']) ? $data['dnssec'] : [];
+
+            if ($status == 200 && !empty($records)) {
+                $DSRecords = 'YES';
+                foreach ($records as $r) {
+                    $DSRecordslist[] = [
+                        'keyTag'     => $r['keytag'],
+                        'alg'        => $r['algorithm'],
+                        'digestType' => $r['digesttype'],
+                        'digest'     => $r['digest'],
+                    ];
+                }
+            }
+        } catch (\Exception $e) {
+            $error = $e->getMessage();
+        }
+    }
+
+    return [
+        'templatefile' => 'dnssecds',
+        'requirelogin'  => true,
+        'vars' => [
+            'domain'        => $domain,
+            'domainid'      => $domainid,
+            'error'         => $error,
+            'success'       => $success,
+            'DSRecords'     => $DSRecords,
+            'DSRecordslist' => $DSRecordslist,
+        ],
+    ];
 }
 
 

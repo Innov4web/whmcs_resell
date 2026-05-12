@@ -96,7 +96,7 @@ class ApiClient
         $responsestatus = json_decode($response, true);
         $respstatus = $responsestatus['status'];
         $respmessage = $responsestatus['message'];
-        if(!$respstatus == '200'){
+        if ((int)$respstatus !== 200) {
             throw new \Exception("Error : $respmessage");
         }
 
