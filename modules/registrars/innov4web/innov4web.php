@@ -34,6 +34,64 @@ function innov4web_getConfigArray()
     ];
 }
 
+function innov4web_getActiveLanguage()
+{
+    if (!empty($_SESSION['Language'])) {
+        return strtolower((string) $_SESSION['Language']);
+    }
+
+    if (class_exists('\WHMCS\Config\Setting')) {
+        $defaultLanguage = \WHMCS\Config\Setting::getValue('Language');
+        if (!empty($defaultLanguage)) {
+            return strtolower((string) $defaultLanguage);
+        }
+    }
+
+    return 'english';
+}
+
+function innov4web_getModuleLanguage($language = null)
+{
+    static $cache = [];
+
+    $language = strtolower((string) ($language ?: innov4web_getActiveLanguage()));
+
+    $normalizedLanguage = $language;
+    if (strpos($normalizedLanguage, 'portuguese') === 0) {
+        $normalizedLanguage = 'portuguese';
+    } elseif (strpos($normalizedLanguage, 'english') === 0) {
+        $normalizedLanguage = 'english';
+    }
+
+    if (isset($cache[$normalizedLanguage])) {
+        return $cache[$normalizedLanguage];
+    }
+
+    $strings = [];
+    foreach (array_unique(['english', $normalizedLanguage]) as $langName) {
+        $file = __DIR__ . '/lang/' . $langName . '.php';
+        if (!is_file($file)) {
+            continue;
+        }
+
+        $_LANG = [];
+        include $file;
+        if (is_array($_LANG)) {
+            $strings = array_merge($strings, $_LANG);
+        }
+    }
+
+    $cache[$normalizedLanguage] = $strings;
+
+    return $cache[$normalizedLanguage];
+}
+
+function innov4web_lang($key, $default = '')
+{
+    $moduleLang = innov4web_getModuleLanguage();
+    return isset($moduleLang[$key]) ? $moduleLang[$key] : $default;
+}
+
 
 function innov4web_RegisterDomain($params)
 {
@@ -334,7 +392,7 @@ function innov4web_Sync($params)
 function innov4web_ClientAreaCustomButtonArray()
 {
     return [
-        'Manage DNSSEC' => 'dnssecds',
+        innov4web_lang('dnssecds_button', 'Manage DNSSEC') => 'dnssecds',
     ];
 }
 
@@ -345,6 +403,7 @@ function innov4web_dnssecds($params)
     $command  = isset($_REQUEST['command']) ? $_REQUEST['command'] : '';
     $error    = null;
     $success  = null;
+    $moduleLang = innov4web_getModuleLanguage();
 
     $api = new ApiClient();
 
@@ -368,14 +427,16 @@ function innov4web_dnssecds($params)
                 'digesttype' => $digestType,
                 'digest'     => $digest,
             ]);
-            $success = ($command === 'secDNSadd') ? 'DS record added successfully.' : 'DS record removed successfully.';
+            $success = ($command === 'secDNSadd')
+                ? innov4web_lang('dnssecds_success_add', 'DS record added successfully.')
+                : innov4web_lang('dnssecds_success_remove', 'DS record removed successfully.');
         } catch (\Exception $e) {
             $error = $e->getMessage();
         }
     }
 
     // Fetch current records
-    $DSRecords     = "You don't have any DS records";
+    $DSRecords     = innov4web_lang('dnssecds_no_records', "You don't have any DS records");
     $DSRecordslist = [];
 
     if (!$error) {
@@ -415,6 +476,7 @@ function innov4web_dnssecds($params)
             'domainid'      => $domainid,
             'error'         => $error,
             'success'       => $success,
+            'moduleLang'    => $moduleLang,
             'DSRecords'     => $DSRecords,
             'DSRecordslist' => $DSRecordslist,
         ],
@@ -459,4 +521,3 @@ function innov4web_TransferSync($params)
         );
     }
 }
-
